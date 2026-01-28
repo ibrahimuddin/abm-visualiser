@@ -1,0 +1,16 @@
+/home/ibrahim/PRJ/ABM_Visualiser/build/CMakeFiles/ABM_Visualizer.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/CMakeFiles/edit_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/CMakeFiles/rebuild_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/webgpu/CMakeFiles/edit_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/webgpu/CMakeFiles/rebuild_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-build/CMakeFiles/edit_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-build/CMakeFiles/rebuild_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw3webgpu/CMakeFiles/glfw3webgpu.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw3webgpu/CMakeFiles/edit_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw3webgpu/CMakeFiles/rebuild_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/CMakeFiles/edit_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/CMakeFiles/rebuild_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/src/CMakeFiles/glfw.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/src/CMakeFiles/update_mappings.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/src/CMakeFiles/edit_cache.dir
+/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/src/CMakeFiles/rebuild_cache.dir

@@ -10,11 +10,31 @@
 
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
-#endif // __EMSCRIPTEN__
+#endif 
 
 #include <iostream>
 #include <cassert>
 #include <vector>
+
+const char* shaderSource = R"(
+@vertex
+fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
+	var p = vec2f(0.0, 0.0);
+	if (in_vertex_index == 0u) {
+		p = vec2f(-0.5, -0.5);
+	} else if (in_vertex_index == 1u) {
+		p = vec2f(0.5, -0.5);
+	} else {
+		p = vec2f(0.0, 0.5);
+	}
+	return vec4f(p, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+	return vec4f(0.0, 0.4, 1.0, 1.0);
+}
+)";
 
 class Application {
 public:
@@ -24,222 +44,260 @@ public:
     bool IsRunning();
 
 private:
-	WGPUTextureView GetNextSurfaceTextureView();
-
+    wgpu::TextureView GetNextSurfaceTextureView();
+    void InitialisePipeline();
 private:
-	GLFWwindow *window;
+    GLFWwindow *window;
     wgpu::Device device;
     wgpu::Queue queue;
-	wgpu::Surface surface;
+    wgpu::Surface surface;
+    wgpu::RenderPipeline pipeline;
+    wgpu::TextureFormat surfaceFormat = wgpu::TextureFormat::Undefined;
 };
 
 bool Application::Initialise() {
-	if (!glfwInit()) return false;
-	
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); 
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
-	
-	if (!window) {;
-		std::cerr << "Could not open window!" << std::endl;
-		glfwTerminate();
-		return 1;
-	}
-	wgpu::InstanceDescriptor desc = {};
-	wgpu::Instance instance = wgpuCreateInstance(desc);
-
-	std::cout << "Requesting adapter..." << std::endl;
-	wgpu::RequestAdapterOptions adapterOpts = {};
-	adapterOpts.nextInChain = nullptr;
-	surface = glfwGetWGPUSurface(instance, window);
-	adapterOpts.compatibleSurface = surface;
-	wgpu::Adapter adapter = requestAdapterSync(instance, adapterOpts);
-	std::cout << "Got adapter: " << adapter << std::endl;
-	inspectAdapter(adapter);
-	wgpuInstanceRelease(instance);
-
-	// We no longer need to use the instance once we have the adapter
-	// without these = memory leak
-	std::cout << "Requesting device..." << std::endl;
-	wgpu::DeviceDescriptor deviceDesc = {};
-	deviceDesc.nextInChain = nullptr;
-	deviceDesc.label = "Ibrahim's Device"; // used in error messages, only used by Dawn
-	deviceDesc.requiredFeatureCount = 0; 
-	deviceDesc.requiredLimits = nullptr; 
-	deviceDesc.defaultQueue.nextInChain = nullptr;
-	deviceDesc.defaultQueue.label = "default queue";
-	deviceDesc.deviceLostCallback = nullptr;
-	device = requestDeviceSync(adapter, &deviceDesc);
-	inspectDevice(device);
-	std::cout << "Got device: " << device << std::endl;
-
-	// conveyor built connecting CPU and GPU
-	queue = wgpuDeviceGetQueue(device);
-
-	auto onQueueWorkDone = [](WGPUQueueWorkDoneStatus status, void* /* pUserData */) {
-        std::cout << "GPU finished the work! Status: " << status << std::endl;
-    };
+    if (!glfwInit()) return false;
     
-    // We register it here, but it won't actually "fire" until we submit work later
-    wgpuQueueOnSubmittedWorkDone(queue, onQueueWorkDone, nullptr);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); 
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
+    
+    if (!window) {
+        std::cerr << "Could not open window!" << std::endl;
+        glfwTerminate();
+        return false;
+    }
 
-	WGPUSurfaceConfiguration config = {};
-	config.nextInChain = nullptr;
+    wgpu::InstanceDescriptor desc = wgpu::Default;
+    wgpu::Instance instance = wgpu::createInstance(desc);
 
-	config.width = 640;
-	config.height = 480;
-	config.usage = WGPUTextureUsage_RenderAttachment; //telling the gpu I am going to use this texture as a canvas to draw pixels into
-	WGPUTextureFormat surfaceFormat = wgpuSurfaceGetPreferredFormat(surface, adapter);
-	config.format = surfaceFormat; //B-G-R-A: The order is Blue, then Green, then Red, then Alpha.
-	config.viewFormatCount = 0;
-	config.viewFormats = nullptr;
-	config.device = device;
-	config.presentMode = WGPUPresentMode_Fifo;
-	config.alphaMode = WGPUCompositeAlphaMode_Auto;
-	wgpuSurfaceConfigure(surface, &config);
+    std::cout << "Requesting adapter..." << std::endl;
+    surface = glfwGetWGPUSurface(instance, window);
+    
+    wgpu::RequestAdapterOptions adapterOpts = wgpu::Default;
+    adapterOpts.compatibleSurface = surface;
+	wgpu::Adapter adapter = (WGPUAdapter)requestAdapterSync((WGPUInstance)instance, (const WGPURequestAdapterOptions*)&adapterOpts);	    
+    std::cout << "Got adapter: " << adapter << std::endl;
+    
+    instance.release();
 
-	wgpuAdapterRelease(adapter);
-	return true;
+    std::cout << "Requesting device..." << std::endl;
+    wgpu::DeviceDescriptor deviceDesc = wgpu::Default;
+    deviceDesc.label = "Ibrahim's Device";
+    deviceDesc.defaultQueue.label = "default queue";
+	device = requestDeviceSync(adapter, (const WGPUDeviceDescriptor*)&deviceDesc);
+    std::cout << "Got device: " << device << std::endl;
 
+    // The C++ method style:
+    queue = device.getQueue();
+
+    // Configure the surface
+    wgpu::SurfaceConfiguration config = wgpu::Default;
+    config.width = 640;
+    config.height = 480;
+    config.usage = wgpu::TextureUsage::RenderAttachment;
+    surfaceFormat = surface.getPreferredFormat(adapter);
+    config.format = surfaceFormat;
+    config.device = device;
+    config.presentMode = wgpu::PresentMode::Fifo;
+    config.alphaMode = wgpu::CompositeAlphaMode::Auto;
+    
+    surface.configure(config);
+
+    adapter.release();
+    InitialisePipeline();
+    return true;
 }
 
 void Application::Terminate() {
-	wgpuSurfaceUnconfigure(surface);
-	wgpuQueueRelease(queue);
-	wgpuSurfaceRelease(surface);	
-	wgpuDeviceRelease(device);
-	glfwDestroyWindow(window);
-	glfwTerminate();
+    surface.unconfigure();
+    queue.release();
+    surface.release();    
+    device.release();
+    glfwDestroyWindow(window);
+    glfwTerminate();
 }
 
 void Application::MainLoop() {
-	glfwPollEvents();
+    glfwPollEvents();
 
-	WGPUTextureView targetView = GetNextSurfaceTextureView();
-	if (!targetView) return;
-		// a 'recorder' that we use to write down the instructions as we cant talk to queue directly 
-	// (can't directly create buffer object so have to create encoder first, like 'draw a circle')
-	// we want to record where each cell moves, encoder will be used to record a compute Pass
-	// 'take these 100000 agents and run the 'movement shader' on all at once
-	WGPUCommandEncoderDescriptor encoderDesc = {};
-	encoderDesc.nextInChain = nullptr;
-	encoderDesc.label = "Ibrahim's command encoder";
-	WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(device, &encoderDesc);
+    wgpu::TextureView targetView = GetNextSurfaceTextureView();
+    if (!targetView) return;
 
-	wgpuCommandEncoderInsertDebugMarker(encoder, "Do one thing");
-	wgpuCommandEncoderInsertDebugMarker(encoder, "Do another thing");
+    wgpu::CommandEncoderDescriptor encoderDesc = wgpu::Default;
+    encoderDesc.label = "Ibrahim's command encoder";
+    wgpu::CommandEncoder encoder = device.createCommandEncoder(encoderDesc);
 
-	WGPURenderPassDescriptor renderPassDesc = {};
-	renderPassDesc.nextInChain = nullptr;
+    wgpu::RenderPassDescriptor renderPassDesc = wgpu::Default;
 
-	WGPURenderPassColorAttachment renderPassColorAttachment = {};
-	renderPassColorAttachment.view = targetView;
-	renderPassColorAttachment.resolveTarget = nullptr;
-	renderPassColorAttachment.loadOp = WGPULoadOp_Clear;
-	renderPassColorAttachment.storeOp = WGPUStoreOp_Store;
-	renderPassColorAttachment.clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 };
+    wgpu::RenderPassColorAttachment renderPassColorAttachment = wgpu::Default;
+    renderPassColorAttachment.view = targetView;
+    renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear;
+    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
+    renderPassColorAttachment.clearValue = wgpu::Color{ 0.9, 0.1, 0.2, 1.0 };
+    
 #ifndef WEBGPU_BACKEND_WGPU
-	renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-#endif // NOT WEBGPU_BACKEND_WGPU
+    renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+#endif
 
-	renderPassDesc.colorAttachmentCount = 1;
-	renderPassDesc.colorAttachments = &renderPassColorAttachment;
-	renderPassDesc.depthStencilAttachment = nullptr;
-	renderPassDesc.timestampWrites = nullptr;
+    renderPassDesc.colorAttachmentCount = 1;
+    renderPassDesc.colorAttachments = &renderPassColorAttachment;
+    
+    wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
+    
+    // Select which render pipeline to use
+	renderPass.setPipeline(pipeline);
+	// Draw 1 instance of a 3-vertices shape
+	renderPass.draw(3, 1, 0, 0);
+    
+    renderPass.end();
+    renderPass.release();
 
+    wgpu::CommandBufferDescriptor cmdBufferDescriptor = wgpu::Default;
+    cmdBufferDescriptor.label = "Command buffer";
+    wgpu::CommandBuffer command = encoder.finish(cmdBufferDescriptor);
+    encoder.release();
 
-	WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(encoder, &renderPassDesc);
-	wgpuRenderPassEncoderEnd(renderPass);
-	wgpuRenderPassEncoderRelease(renderPass);
+    std::cout << "Submitting command..." << std::endl;
+    queue.submit(1, &command);
+    command.release();
+    
+    targetView.release();
 
-	// the finished list of our instructions created by encoder
-	// when agent data changes on the cpu, we need to use the conveyor belt to shoot down the 
-	// updated info to gpu 
-	WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
-	cmdBufferDescriptor.nextInChain = nullptr;
-	cmdBufferDescriptor.label = "Command buffer";
-	WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
-	wgpuCommandEncoderRelease(encoder);
-
-	std::cout << "Submitting command..." << std::endl;
-	wgpuQueueSubmit(queue, 1, &command);
-	wgpuCommandBufferRelease(command);
-	std::cout << "Command submitted." << std::endl;
-	wgpuTextureViewRelease(targetView);
 #ifndef __EMSCRIPTEN__
-	wgpuSurfacePresent(surface);
+    surface.present();
 #endif
 
 #if defined(WEBGPU_BACKEND_DAWN)
-		wgpuDeviceTick(device);
+    device.tick();
 #elif defined(WEBGPU_BACKEND_WGPU)
-		wgpuDevicePoll(device, false, nullptr);
-#elif defined(WEBGPU_BACKEND_EMSCRIPTEN)
-		emscripten_sleep(100);
+    device.poll(false);
 #endif
 }
 
 bool Application::IsRunning() {
-	return !glfwWindowShouldClose(window);
+    return !glfwWindowShouldClose(window);
 }
 
-WGPUTextureView Application::GetNextSurfaceTextureView() {
-	// Get the surface texture
-	WGPUSurfaceTexture surfaceTexture;
-	wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
-	if (surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_Success) {
-		return nullptr;
-	}
-
-	// Create a view for this surface texture
-	WGPUTextureViewDescriptor viewDescriptor;
-	viewDescriptor.nextInChain = nullptr;
-	viewDescriptor.label = "Surface texture view";
-	viewDescriptor.format = wgpuTextureGetFormat(surfaceTexture.texture);
-	viewDescriptor.dimension = WGPUTextureViewDimension_2D;
-	viewDescriptor.baseMipLevel = 0;
-	viewDescriptor.mipLevelCount = 1;
-	viewDescriptor.baseArrayLayer = 0;
-	viewDescriptor.arrayLayerCount = 1;
-	viewDescriptor.aspect = WGPUTextureAspect_All;
-	WGPUTextureView targetView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
+wgpu::TextureView Application::GetNextSurfaceTextureView() {
+    wgpu::SurfaceTexture surfaceTexture;
+    surface.getCurrentTexture(&surfaceTexture);
+    if (surfaceTexture.status != wgpu::SurfaceGetCurrentTextureStatus::Success) {
+        return nullptr;
+    }
+	wgpu::Texture texture = (wgpu::Texture)surfaceTexture.texture;    wgpu::TextureViewDescriptor viewDescriptor = wgpu::Default;
+    viewDescriptor.label = "Surface texture view";
+    viewDescriptor.format = texture.getFormat();
+    viewDescriptor.dimension = wgpu::TextureViewDimension::_2D;
+    viewDescriptor.baseMipLevel = 0;
+    viewDescriptor.mipLevelCount = 1;
+    viewDescriptor.baseArrayLayer = 0;
+    viewDescriptor.arrayLayerCount = 1;
+    viewDescriptor.aspect = wgpu::TextureAspect::All;
+    
+    wgpu::TextureView targetView = texture.createView(viewDescriptor);
 
 #ifndef WEBGPU_BACKEND_WGPU
-	// We no longer need the texture, only its view
-	// (NB: with wgpu-native, surface textures must not be manually released)
-	wgpuTextureRelease(surfaceTexture.texture);
-#endif // WEBGPU_BACKEND_WGPU
+    texture.release();
+#endif 
 
-	return targetView;
+    return targetView;
 }
 
+void Application::InitialisePipeline() {
+
+    wgpu::ShaderModuleDescriptor shaderDesc;
+#ifdef WEBGPU_BACKEND_WGPU
+	shaderDesc.hintCount = 0;
+	shaderDesc.hints = nullptr;
+#endif
+
+	// We use the extension mechanism to specify the WGSL part of the shader module descriptor
+	wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
+	// Set the chained struct's header
+	shaderCodeDesc.chain.next = nullptr;
+	shaderCodeDesc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
+	// Connect the chain
+	shaderDesc.nextInChain = &shaderCodeDesc.chain;
+	shaderCodeDesc.code = shaderSource;
+	wgpu::ShaderModule shaderModule = device.createShaderModule(shaderDesc);
+
+    wgpu::RenderPipelineDescriptor pipelineDesc;
+    // we will send external data later, so far we aren#t looking at memory
+    pipelineDesc.vertex.bufferCount = 0;
+	pipelineDesc.vertex.buffers = nullptr;
+    pipelineDesc.vertex.module = shaderModule;
+	pipelineDesc.vertex.entryPoint = "vs_main";
+	pipelineDesc.vertex.constantCount = 0;
+	pipelineDesc.vertex.constants = nullptr;
+
+    // make into triangle
+	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
+	// The face orientation is defined by assuming that when looking
+	// from the front of the face, its corner vertices are enumerated
+	// in the counter-clockwise (CCW) order.
+	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
+	pipelineDesc.primitive.cullMode = wgpu::CullMode::None;
+
+    wgpu::FragmentState fragmentState;
+	fragmentState.module = shaderModule;
+	fragmentState.entryPoint = "fs_main";
+	fragmentState.constantCount = 0;
+	fragmentState.constants = nullptr;
+
+    pipelineDesc.fragment = &fragmentState;
+
+    wgpu::BlendState blendState;
+	blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+	blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+	blendState.color.operation = wgpu::BlendOperation::Add;
+	blendState.alpha.srcFactor = wgpu::BlendFactor::Zero;
+	blendState.alpha.dstFactor = wgpu::BlendFactor::One;
+	blendState.alpha.operation = wgpu::BlendOperation::Add;
+	
+	wgpu::ColorTargetState colorTarget;
+	colorTarget.format = surfaceFormat;
+	colorTarget.blend = &blendState;
+	colorTarget.writeMask = wgpu::ColorWriteMask::All; 
+
+    fragmentState.targetCount = 1;
+	fragmentState.targets = &colorTarget;
+    pipelineDesc.fragment = &fragmentState;
+
+
+    // not going to use (used to discard fragments)
+    pipelineDesc.depthStencil = nullptr;
+    pipelineDesc.multisample.count = 1;
+	// Default value for the mask, meaning "all bits on"
+	pipelineDesc.multisample.mask = ~0u;
+	// Default value as well (irrelevant for count = 1 anyways)
+	pipelineDesc.multisample.alphaToCoverageEnabled = false;
+    pipelineDesc.layout = nullptr;
+    pipeline = device.createRenderPipeline(pipelineDesc);
+    shaderModule.release();
+
+}
+
+
 int main() {
-	Application application;
-	if (!application.Initialise()){
-		return 1;
-	}
+    Application application;
+    if (!application.Initialise()){
+        return 1;
+    }
 
 #ifdef __EMSCRIPTEN__
-// Equivalent of the main loop when using Emscripten: 
-// writing whole loop directly not possible as it conflicts with the web browsers own loop
-	auto callback = [](void *arg) {
-		//                   ^^^ 2. We get the address of the app in the callback.
-		Application* pApp = reinterpret_cast<Application*>(arg);
-		//                  ^^^^^^^^^^^^^^^^ 3. We force this address to be interpreted
-		//                                      as a pointer to an Application object.
-		pApp->MainLoop(); // 4. We can use the application object
-	};
-	emscripten_set_main_loop_arg(callback, &application, 0, true);
-	//                                     ^^^^ 1. We pass the address of our application object.
-#else // __EMSCRIPTEN__
-	while (application.IsRunning()) {
-		application.MainLoop();
-	}
-#endif // __EMSCRIPTEN__
+    auto callback = [](void *arg) {
+        Application* pApp = reinterpret_cast<Application*>(arg);
+        pApp->MainLoop();
+    };
+    emscripten_set_main_loop_arg(callback, &application, 0, true);
+#else 
+    while (application.IsRunning()) {
+        application.MainLoop();
+    }
+#endif 
 
     application.Terminate();
-
     return 0;
-
-	return 0;
 }

@@ -16,18 +16,13 @@
 #include <cassert>
 #include <vector>
 
+//  export SDL_VIDEODRIVER=x11
+// export WAYLAND_DISPLAY=
+
 const char* shaderSource = R"(
 @vertex
-fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
-	var p = vec2f(0.0, 0.0);
-	if (in_vertex_index == 0u) {
-		p = vec2f(-0.5, -0.5);
-	} else if (in_vertex_index == 1u) {
-		p = vec2f(0.5, -0.5);
-	} else {
-		p = vec2f(0.0, 0.5);
-	}
-	return vec4f(p, 0.0, 1.0);
+fn vs_main(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(in_vertex_position, 0.0, 1.0);
 }
 
 @fragment
@@ -46,6 +41,9 @@ public:
 private:
     wgpu::TextureView GetNextSurfaceTextureView();
     void InitialisePipeline();
+    wgpu::RequiredLimits GetRequiredLimits(wgpu::Adapter adapter) const;
+    void InitialiseBuffers();
+
 private:
     GLFWwindow *window;
     wgpu::Device device;
@@ -53,6 +51,8 @@ private:
     wgpu::Surface surface;
     wgpu::RenderPipeline pipeline;
     wgpu::TextureFormat surfaceFormat = wgpu::TextureFormat::Undefined;
+    wgpu::Buffer vertexBuffer;
+	uint32_t vertexCount;
 };
 
 bool Application::Initialise() {
@@ -85,6 +85,8 @@ bool Application::Initialise() {
     wgpu::DeviceDescriptor deviceDesc = wgpu::Default;
     deviceDesc.label = "Ibrahim's Device";
     deviceDesc.defaultQueue.label = "default queue";
+    wgpu::RequiredLimits requiredLimits = GetRequiredLimits(adapter);
+    deviceDesc.requiredLimits = &requiredLimits;
 	device = requestDeviceSync(adapter, (const WGPUDeviceDescriptor*)&deviceDesc);
     std::cout << "Got device: " << device << std::endl;
 
@@ -106,10 +108,13 @@ bool Application::Initialise() {
 
     adapter.release();
     InitialisePipeline();
+    InitialiseBuffers();
     return true;
 }
 
 void Application::Terminate() {
+    vertexBuffer.release();
+    pipeline.release();
     surface.unconfigure();
     queue.release();
     surface.release();    
@@ -147,8 +152,11 @@ void Application::MainLoop() {
     
     // Select which render pipeline to use
 	renderPass.setPipeline(pipeline);
+
+    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexBuffer.getSize());
+
 	// Draw 1 instance of a 3-vertices shape
-	renderPass.draw(3, 1, 0, 0);
+	renderPass.draw(vertexCount, 1, 0, 0);
     
     renderPass.end();
     renderPass.release();
@@ -223,9 +231,26 @@ void Application::InitialisePipeline() {
 	wgpu::ShaderModule shaderModule = device.createShaderModule(shaderDesc);
 
     wgpu::RenderPipelineDescriptor pipelineDesc;
-    // we will send external data later, so far we aren#t looking at memory
-    pipelineDesc.vertex.bufferCount = 0;
-	pipelineDesc.vertex.buffers = nullptr;
+
+    // Configure the vertex pipeline
+	// We use one vertex buffer
+	wgpu::VertexBufferLayout vertexBufferLayout;
+	wgpu::VertexAttribute positionAttrib;
+	// == For each attribute, describe its layout, i.e., how to interpret the raw data ==
+	// Corresponds to @location(...)
+	positionAttrib.shaderLocation = 0;
+	positionAttrib.format = wgpu::VertexFormat::Float32x2;
+	// Index of the first element
+	positionAttrib.offset = 0;
+	vertexBufferLayout.attributeCount = 1;
+	vertexBufferLayout.attributes = &positionAttrib;
+	// == Common to attributes from the same buffer ==
+	vertexBufferLayout.arrayStride = 2 * sizeof(float);
+	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
+	
+	pipelineDesc.vertex.bufferCount = 1;
+	pipelineDesc.vertex.buffers = &vertexBufferLayout;
+
     pipelineDesc.vertex.module = shaderModule;
 	pipelineDesc.vertex.entryPoint = "vs_main";
 	pipelineDesc.vertex.constantCount = 0;
@@ -278,6 +303,48 @@ void Application::InitialisePipeline() {
     shaderModule.release();
 
 }
+
+wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter) const {
+	wgpu::SupportedLimits supportedLimits;
+	adapter.getLimits(&supportedLimits);
+	wgpu::RequiredLimits requiredLimits = wgpu::Default;
+	requiredLimits.limits.maxVertexAttributes = 1;
+	requiredLimits.limits.maxVertexBuffers = 1;
+	// Maximum size of a buffer is 6 vertices of 2 float each
+	requiredLimits.limits.maxBufferSize = 6 * 2 * sizeof(float);
+	requiredLimits.limits.maxVertexBufferArrayStride = 2 * sizeof(float);
+
+	// These two limits are different because they are "minimum" limits,
+	// they are the only ones we are may forward from the adapter's supported
+	// limits.
+	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+
+	return requiredLimits;
+}
+
+void Application::InitialiseBuffers(){
+    std::vector<float> vertexData = {
+    -0.5, -0.5,
+    +0.5, -0.5,
+    +0.0, +0.5,
+
+    -0.55f, -0.5,
+    -0.05f, +0.5,
+    -0.55f, +0.5
+};
+    vertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+
+    wgpu::BufferDescriptor bufferDesc;
+    bufferDesc.size = vertexData.size() * sizeof(float);
+    bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex; 
+    bufferDesc.mappedAtCreation = false;
+    vertexBuffer = device.createBuffer(bufferDesc);
+
+    queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+}
+
+
 
 
 int main() {

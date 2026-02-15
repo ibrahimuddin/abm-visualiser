@@ -131,7 +131,7 @@ bool Application::Initialise() {
     deviceDesc.label = "Ibrahim's Device";
     deviceDesc.defaultQueue.label = "default queue";
     wgpu::RequiredLimits requiredLimits = GetRequiredLimits(adapter);
-    requiredLimits.limits.maxBindGroups = 2;
+    // requiredLimits.limits.maxBindGroups = 2;
     deviceDesc.requiredLimits = &requiredLimits;
 	device = requestDeviceSync(adapter, (const WGPUDeviceDescriptor*)&deviceDesc); // active session. its the engine. Used to create the buffers, pipelines, shaders
     std::cout << "Got device: " << device << std::endl;
@@ -156,11 +156,11 @@ bool Application::Initialise() {
     InitialiseBuffers();
     lastFrameTime = std::chrono::high_resolution_clock::now();
 
-    // IMGUI_CHECKVERSION();
-    // ImGui::CreateContext();
-    // ImGui::GetIO();
-    // ImGui_ImplGlfw_InitForOther(window, true);
-    // ImGui_ImplWGPU_Init(device, 3, surfaceFormat,  wgpu::TextureFormat::Undefined);
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::GetIO();
+    ImGui_ImplGlfw_InitForOther(window, true);
+    ImGui_ImplWGPU_Init(device, 3, surfaceFormat,  wgpu::TextureFormat::Undefined);
 
     return true;
 }
@@ -178,14 +178,14 @@ void Application::Terminate() {
 
 void Application::MainLoop() {
 
-    // ImGui_ImplWGPU_NewFrame();
-    // ImGui_ImplGlfw_NewFrame();
-    // ImGui::NewFrame();
+    ImGui_ImplWGPU_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
 
-    // ImGui::Begin("Controls");
-    // static float zoom = 1.0f;
-    // ImGui::SliderFloat("Zoom", &zoom, 0.1f, 5.0f); 
-    // ImGui::End();
+    ImGui::Begin("Controls");
+    static float zoom = 1.0f;
+    ImGui::SliderFloat("Zoom", &zoom, 0.1f, 5.0f); 
+    ImGui::End();
 
     glfwPollEvents();
 
@@ -245,8 +245,8 @@ void Application::MainLoop() {
     renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexCount * 5 * sizeof(float));
     renderPass.draw(vertexCount, 1, 0, 0);
 
-    // ImGui::Render();
-    // ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass);
+    ImGui::Render();
+    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass);
 
     renderPass.end();
 
@@ -387,25 +387,25 @@ void Application::InitialisePipeline() {
 wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter) const {
 	wgpu::SupportedLimits supportedLimits;
 	adapter.getLimits(&supportedLimits);
-	wgpu::RequiredLimits requiredLimits = wgpu::Default;
+	wgpu::RequiredLimits requiredLimits = {};
+    requiredLimits.limits = supportedLimits.limits;
 
-    requiredLimits.limits.maxTextureDimension1D = supportedLimits.limits.maxTextureDimension1D;
-    requiredLimits.limits.maxTextureDimension2D = supportedLimits.limits.maxTextureDimension2D;
-    requiredLimits.limits.maxTextureArrayLayers = supportedLimits.limits.maxTextureArrayLayers;
+    // requiredLimits.limits.maxTextureDimension1D = supportedLimits.limits.maxTextureDimension1D;
+    // requiredLimits.limits.maxTextureDimension2D = supportedLimits.limits.maxTextureDimension2D;
+    // requiredLimits.limits.maxTextureArrayLayers = supportedLimits.limits.maxTextureArrayLayers;
 
-	requiredLimits.limits.maxVertexAttributes = 2;
+	requiredLimits.limits.maxVertexAttributes = 8;
 	requiredLimits.limits.maxVertexBuffers = 1;
 	// Maximum size of a buffer is 6 vertices of 2 float each
 	requiredLimits.limits.maxBufferSize = 100000 * 3 * 5 * sizeof(float);
 	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float); //x,y,r,g,b
-
-    requiredLimits.limits.maxInterStageShaderComponents = 3;
+    // requiredLimits.limits.maxInterStageShaderComponents = 3;
 
 	// These two limits are different because they are "minimum" limits,
 	// they are the only ones we are may forward from the adapter's supported
 	// limits.
-	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
-	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+	// requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+	// requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 
 	return requiredLimits;
 }

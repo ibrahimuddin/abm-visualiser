@@ -7,6 +7,7 @@ project(
 
 add_subdirectory(webgpu)
 add_subdirectory(glfw3webgpu)
+add_subdirectory(imgui)
 
 add_executable(ABM_Visualizer 
 main.cpp
@@ -14,7 +15,7 @@ webgpu-utils.h
 webgpu-utils.cpp
 )
 
-target_link_libraries(ABM_Visualizer PRIVATE webgpu glfw glfw3webgpu)
+target_link_libraries(ABM_Visualizer PRIVATE webgpu glfw glfw3webgpu imgui)
 
 target_copy_webgpu_binaries(ABM_Visualizer)
 

@@ -110,6 +110,7 @@ ABM_Visualizer: CMakeFiles/ABM_Visualizer.dir/webgpu-utils.cpp.o
 ABM_Visualizer: CMakeFiles/ABM_Visualizer.dir/build.make
 ABM_Visualizer: glfw/src/libglfw3.a
 ABM_Visualizer: glfw3webgpu/libglfw3webgpu.a
+ABM_Visualizer: imgui/libimgui.a
 ABM_Visualizer: _deps/webgpu-backend-wgpu-src/bin/linux-x86_64/libwgpu_native.so
 ABM_Visualizer: glfw/src/libglfw3.a
 ABM_Visualizer: /usr/lib/x86_64-linux-gnu/librt.a

@@ -3,6 +3,11 @@
 #include <webgpu/webgpu.hpp>
 #include <GLFW/glfw3.h>
 #include <glfw3webgpu.h>
+#include <cstdlib> // For rand()
+#include <chrono>
+#include "imgui.h"
+#include <backends/imgui_impl_wgpu.h>
+#include <backends/imgui_impl_glfw.h>
 
 #ifdef WEBGPU_BACKEND_WGPU
 #  include <webgpu/wgpu.h>
@@ -20,16 +25,46 @@
 // export WAYLAND_DISPLAY=
 
 const char* shaderSource = R"(
-@vertex
-fn vs_main(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
-    return vec4f(in_vertex_position, 0.0, 1.0);
+
+// structure of one of the vertex's. must match vertex buffer layout 
+struct VertexInput {
+	@location(0) position: vec2f, // two f32 values (x,y). give me whatever the cpu binds to slot 0 and call it position
+	@location(1) biologicalData: vec3f, //(r,g,b) each vertex has its own colour
+};
+struct VertexOutput {
+	@builtin(position) position: vec4f, // (x,y,z,w) where the vertex lies on the screen
+	// The location here does not refer to a vertex attribute, it just means
+	// that this field must be handled by the rasterizer.
+	// (It can also refer to another field of another struct that would be used
+	// as input to the fragment shader.)
+	@location(0) color: vec3f, // vertex shader outputs a colour -> rasterizer interpolates it -> fragment shader receives it
+};
+@vertex // vertex shader. x,y,r,g,b (from vertex buffer) --> vec4f for gpu
+fn vs_main(in: VertexInput) -> VertexOutput {
+	var out: VertexOutput;
+    let aspectRatio = 1280.0 / 720.0;
+    let correctedX = in.position.x / aspectRatio;
+	out.position = vec4f(correctedX, in.position.y, 0.0, 1.0); // in.position is x,y, make z and w 0 and 1.
+	out.color = in.biologicalData;
+	return out;
 }
 
-@fragment
-fn fs_main() -> @location(0) vec4f {
-	return vec4f(0.0, 0.4, 1.0, 1.0);
+@fragment // fragment shader. colour from vertex shader --> vec4f representing final rgba colour for every pixel. actually displays the colour.
+fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+	return vec4f(in.color, 1.0);
 }
 )";
+
+struct Agent {
+    // spatial prop's
+    float x,y,dx,dy;
+
+    // biological prop's
+
+    float proteinLevel;
+    float greediness;
+    float speed;
+};
 
 class Application {
 public:
@@ -43,6 +78,7 @@ private:
     void InitialisePipeline();
     wgpu::RequiredLimits GetRequiredLimits(wgpu::Adapter adapter) const;
     void InitialiseBuffers();
+    void UpdateAgents();
 
 private:
     GLFWwindow *window;
@@ -53,6 +89,15 @@ private:
     wgpu::TextureFormat surfaceFormat = wgpu::TextureFormat::Undefined;
     wgpu::Buffer vertexBuffer;
 	uint32_t vertexCount;
+
+    std::vector<Agent> agents;
+    int currentScale = 10;
+    int stepCounter = 0;
+    double totalTime = 0;
+
+    float displayTimer = 0.0f;
+    const float TIME_PER_SCALE = 3.0f;
+    std::chrono::high_resolution_clock::time_point lastFrameTime;
 };
 
 bool Application::Initialise() {
@@ -60,7 +105,7 @@ bool Application::Initialise() {
     
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
+    window = glfwCreateWindow(1280, 720, "ABM Visualisation via WebGPU", nullptr, nullptr);
     
     if (!window) {
         std::cerr << "Could not open window!" << std::endl;
@@ -69,14 +114,14 @@ bool Application::Initialise() {
     }
 
     wgpu::InstanceDescriptor desc = wgpu::Default;
-    wgpu::Instance instance = wgpu::createInstance(desc);
+    wgpu::Instance instance = wgpu::createInstance(desc); // entry point to the WebGPU library
 
     std::cout << "Requesting adapter..." << std::endl;
-    surface = glfwGetWGPUSurface(instance, window);
+    surface = glfwGetWGPUSurface(instance, window); // where pixels will be drawn ('canvas')
     
     wgpu::RequestAdapterOptions adapterOpts = wgpu::Default;
     adapterOpts.compatibleSurface = surface;
-	wgpu::Adapter adapter = (WGPUAdapter)requestAdapterSync((WGPUInstance)instance, (const WGPURequestAdapterOptions*)&adapterOpts);	    
+	wgpu::Adapter adapter = (WGPUAdapter)requestAdapterSync((WGPUInstance)instance, (const WGPURequestAdapterOptions*)&adapterOpts); //actual gpu. tells us what the hardware is capable of
     std::cout << "Got adapter: " << adapter << std::endl;
     
     instance.release();
@@ -86,17 +131,17 @@ bool Application::Initialise() {
     deviceDesc.label = "Ibrahim's Device";
     deviceDesc.defaultQueue.label = "default queue";
     wgpu::RequiredLimits requiredLimits = GetRequiredLimits(adapter);
+    requiredLimits.limits.maxBindGroups = 2;
     deviceDesc.requiredLimits = &requiredLimits;
-	device = requestDeviceSync(adapter, (const WGPUDeviceDescriptor*)&deviceDesc);
+	device = requestDeviceSync(adapter, (const WGPUDeviceDescriptor*)&deviceDesc); // active session. its the engine. Used to create the buffers, pipelines, shaders
     std::cout << "Got device: " << device << std::endl;
 
-    // The C++ method style:
     queue = device.getQueue();
 
     // Configure the surface
     wgpu::SurfaceConfiguration config = wgpu::Default;
-    config.width = 640;
-    config.height = 480;
+    config.width = 1280;
+    config.height = 720;
     config.usage = wgpu::TextureUsage::RenderAttachment;
     surfaceFormat = surface.getPreferredFormat(adapter);
     config.format = surfaceFormat;
@@ -109,6 +154,14 @@ bool Application::Initialise() {
     adapter.release();
     InitialisePipeline();
     InitialiseBuffers();
+    lastFrameTime = std::chrono::high_resolution_clock::now();
+
+    // IMGUI_CHECKVERSION();
+    // ImGui::CreateContext();
+    // ImGui::GetIO();
+    // ImGui_ImplGlfw_InitForOther(window, true);
+    // ImGui_ImplWGPU_Init(device, 3, surfaceFormat,  wgpu::TextureFormat::Undefined);
+
     return true;
 }
 
@@ -124,54 +177,83 @@ void Application::Terminate() {
 }
 
 void Application::MainLoop() {
+
+    // ImGui_ImplWGPU_NewFrame();
+    // ImGui_ImplGlfw_NewFrame();
+    // ImGui::NewFrame();
+
+    // ImGui::Begin("Controls");
+    // static float zoom = 1.0f;
+    // ImGui::SliderFloat("Zoom", &zoom, 0.1f, 5.0f); 
+    // ImGui::End();
+
     glfwPollEvents();
+
+    auto currentFrameTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float> deltaTime = currentFrameTime - lastFrameTime;
+    lastFrameTime = currentFrameTime;
+
+    auto startBench = std::chrono::high_resolution_clock::now();
+    UpdateAgents(); 
+    auto endBench = std::chrono::high_resolution_clock::now();
+
+    if (stepCounter < 100) {
+        std::chrono::duration<double, std::milli> elapsed = endBench - startBench;
+        totalTime += elapsed.count();
+        stepCounter++;
+    }
+
+    displayTimer += deltaTime.count(); // Accumulate real-world seconds
+
+    // Transition condition: 100 frames measured AND 3 seconds have passed
+    if (stepCounter >= 100 && displayTimer >= TIME_PER_SCALE) {
+        double avg = totalTime / 100.0;
+        std::cout << "COMPLETED SCALE: " << currentScale << " | AVG MATH TIME: " << avg << "ms" << std::endl;
+
+        // Reset for next level
+        stepCounter = 0;
+        totalTime = 0.0;
+        displayTimer = 0.0f;
+        currentScale *= 10;
+
+        if (currentScale <= 100000) {
+            InitialiseBuffers(); // This resets the 'agents' vector and creates a bigger GPU buffer
+        } else {
+            std::cout << "Objective 1: All scales tested successfully." << std::endl;
+            glfwSetWindowShouldClose(window, true);
+        }
+    }
 
     wgpu::TextureView targetView = GetNextSurfaceTextureView();
     if (!targetView) return;
 
-    wgpu::CommandEncoderDescriptor encoderDesc = wgpu::Default;
-    encoderDesc.label = "Ibrahim's command encoder";
-    wgpu::CommandEncoder encoder = device.createCommandEncoder(encoderDesc);
+    wgpu::CommandEncoder encoder = device.createCommandEncoder(wgpu::Default);
+    wgpu::RenderPassColorAttachment colorAttachment = wgpu::Default;
+    colorAttachment.view = targetView;
+    colorAttachment.loadOp = wgpu::LoadOp::Clear; //wipe the screen with a very dark grey colour
+    colorAttachment.storeOp = wgpu::StoreOp::Store;
+    colorAttachment.clearValue = { 0.05, 0.05, 0.05, 1.0 };
 
+    //drawing session, math already done but hasn't been drawn yet
     wgpu::RenderPassDescriptor renderPassDesc = wgpu::Default;
-
-    wgpu::RenderPassColorAttachment renderPassColorAttachment = wgpu::Default;
-    renderPassColorAttachment.view = targetView;
-    renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear;
-    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
-    renderPassColorAttachment.clearValue = wgpu::Color{ 0.9, 0.1, 0.2, 1.0 };
-    
-#ifndef WEBGPU_BACKEND_WGPU
-    renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-#endif
-
     renderPassDesc.colorAttachmentCount = 1;
-    renderPassDesc.colorAttachments = &renderPassColorAttachment;
-    
+    renderPassDesc.colorAttachments = &colorAttachment;
+
     wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
-    
-    // Select which render pipeline to use
-	renderPass.setPipeline(pipeline);
+    renderPass.setPipeline(pipeline);
+    // Use vertexCount * 5 * 4 bytes to ensure we bind the correct size
+    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexCount * 5 * sizeof(float));
+    renderPass.draw(vertexCount, 1, 0, 0);
 
-    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexBuffer.getSize());
+    // ImGui::Render();
+    // ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass);
 
-	// Draw 1 instance of a 3-vertices shape
-	renderPass.draw(vertexCount, 1, 0, 0);
-    
     renderPass.end();
-    renderPass.release();
 
-    wgpu::CommandBufferDescriptor cmdBufferDescriptor = wgpu::Default;
-    cmdBufferDescriptor.label = "Command buffer";
-    wgpu::CommandBuffer command = encoder.finish(cmdBufferDescriptor);
-    encoder.release();
-
-    std::cout << "Submitting command..." << std::endl;
+    wgpu::CommandBuffer command = encoder.finish(wgpu::Default);
     queue.submit(1, &command);
-    command.release();
     
     targetView.release();
-
 #ifndef __EMSCRIPTEN__
     surface.present();
 #endif
@@ -222,10 +304,8 @@ void Application::InitialisePipeline() {
 
 	// We use the extension mechanism to specify the WGSL part of the shader module descriptor
 	wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
-	// Set the chained struct's header
 	shaderCodeDesc.chain.next = nullptr;
 	shaderCodeDesc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
-	// Connect the chain
 	shaderDesc.nextInChain = &shaderCodeDesc.chain;
 	shaderCodeDesc.code = shaderSource;
 	wgpu::ShaderModule shaderModule = device.createShaderModule(shaderDesc);
@@ -235,21 +315,23 @@ void Application::InitialisePipeline() {
     // Configure the vertex pipeline
 	// We use one vertex buffer
 	wgpu::VertexBufferLayout vertexBufferLayout;
-	wgpu::VertexAttribute positionAttrib;
-	// == For each attribute, describe its layout, i.e., how to interpret the raw data ==
-	// Corresponds to @location(...)
-	positionAttrib.shaderLocation = 0;
-	positionAttrib.format = wgpu::VertexFormat::Float32x2;
-	// Index of the first element
-	positionAttrib.offset = 0;
-	vertexBufferLayout.attributeCount = 1;
-	vertexBufferLayout.attributes = &positionAttrib;
-	// == Common to attributes from the same buffer ==
-	vertexBufferLayout.arrayStride = 2 * sizeof(float);
+    std::vector<wgpu::VertexAttribute> vertexAttribs(2);
+
+    vertexAttribs[0].shaderLocation = 0; // @location(0)
+    vertexAttribs[0].format = wgpu::VertexFormat::Float32x2;
+    vertexAttribs[0].offset = 0;
+
+    vertexAttribs[1].shaderLocation = 1; // @location(1)
+    vertexAttribs[1].format = wgpu::VertexFormat::Float32x3;
+    vertexAttribs[1].offset = 2 * sizeof(float); // non null offset!. as in [x,y,r,g,b,x,y,r,g,b....] we want to skip the x and y
+
+    vertexBufferLayout.attributeCount = static_cast<uint32_t>(vertexAttribs.size());
+    vertexBufferLayout.attributes = vertexAttribs.data();
+	vertexBufferLayout.arrayStride = 5 * sizeof(float); //(x,y,r,g,b) once you've finished with one vertex, jump foreward exactly 5 numbers to find the next and because of the offset being 2*..., it skips the x,y each time
 	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
 	
-	pipelineDesc.vertex.bufferCount = 1;
-	pipelineDesc.vertex.buffers = &vertexBufferLayout;
+	pipelineDesc.vertex.bufferCount = 1; // for every vertex, i will give 1 physical buffer
+	pipelineDesc.vertex.buffers = &vertexBufferLayout; 
 
     pipelineDesc.vertex.module = shaderModule;
 	pipelineDesc.vertex.entryPoint = "vs_main";
@@ -257,14 +339,12 @@ void Application::InitialisePipeline() {
 	pipelineDesc.vertex.constants = nullptr;
 
     // make into triangle
-	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;// take every 3 vertiecs and make into seperate triangle
 	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
-	// The face orientation is defined by assuming that when looking
-	// from the front of the face, its corner vertices are enumerated
-	// in the counter-clockwise (CCW) order.
 	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
-	pipelineDesc.primitive.cullMode = wgpu::CullMode::None;
+	pipelineDesc.primitive.cullMode = wgpu::CullMode::None; //when triangle rotates, it never disappears from screen
 
+    // colouring of every pixel
     wgpu::FragmentState fragmentState;
 	fragmentState.module = shaderModule;
 	fragmentState.entryPoint = "fs_main";
@@ -308,11 +388,18 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter) const
 	wgpu::SupportedLimits supportedLimits;
 	adapter.getLimits(&supportedLimits);
 	wgpu::RequiredLimits requiredLimits = wgpu::Default;
-	requiredLimits.limits.maxVertexAttributes = 1;
+
+    requiredLimits.limits.maxTextureDimension1D = supportedLimits.limits.maxTextureDimension1D;
+    requiredLimits.limits.maxTextureDimension2D = supportedLimits.limits.maxTextureDimension2D;
+    requiredLimits.limits.maxTextureArrayLayers = supportedLimits.limits.maxTextureArrayLayers;
+
+	requiredLimits.limits.maxVertexAttributes = 2;
 	requiredLimits.limits.maxVertexBuffers = 1;
 	// Maximum size of a buffer is 6 vertices of 2 float each
-	requiredLimits.limits.maxBufferSize = 6 * 2 * sizeof(float);
-	requiredLimits.limits.maxVertexBufferArrayStride = 2 * sizeof(float);
+	requiredLimits.limits.maxBufferSize = 100000 * 3 * 5 * sizeof(float);
+	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float); //x,y,r,g,b
+
+    requiredLimits.limits.maxInterStageShaderComponents = 3;
 
 	// These two limits are different because they are "minimum" limits,
 	// they are the only ones we are may forward from the adapter's supported
@@ -324,24 +411,62 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter) const
 }
 
 void Application::InitialiseBuffers(){
-    std::vector<float> vertexData = {
-    -0.5, -0.5,
-    +0.5, -0.5,
-    +0.0, +0.5,
+    if (vertexBuffer) vertexBuffer.release(); //called every time our scale changes 10--100--1000 etc so must destroy old gpu buffer
+    agents.clear(); // both prevent memory leaks
+    //float scale = 0.02f;
 
-    -0.55f, -0.5,
-    -0.05f, +0.5,
-    -0.55f, +0.5
-};
-    vertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+    // generate starting state for every agent
+    for (int i=0; i<currentScale; ++i){
+        float x = ((float)rand() / (float)RAND_MAX) * 1.8f - 0.9f;
+        float y = ((float)rand() / (float)RAND_MAX) * 1.8f - 0.9f;
+
+        float protein = (float)rand() / (float)RAND_MAX;
+        float greed = (float)rand() / (float)RAND_MAX;
+        float speed =  (float)rand() / (float)RAND_MAX + 0.05f;
+
+        float dx = ((float)rand() / (float)RAND_MAX -0.5f) * 0.01f;
+        float dy = ((float)rand() / (float)RAND_MAX -0.5f) * 0.01f;
+        agents.push_back({x,y,dx,dy, protein, greed, speed});
+    }
+
+    vertexCount = currentScale * 3; //as 3 vertices
 
     wgpu::BufferDescriptor bufferDesc;
-    bufferDesc.size = vertexData.size() * sizeof(float);
+    bufferDesc.size = vertexCount * 5 * sizeof(float); //as every vertex needs 5 floats x,y,r,g,b x4 bytes for size of float
     bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex; 
-    bufferDesc.mappedAtCreation = false;
+    // bufferDesc.mappedAtCreation = false;
     vertexBuffer = device.createBuffer(bufferDesc);
 
-    queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+    // queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+}
+
+void Application::UpdateAgents(){
+    // go through agents db and pick our exactly what the gpu needs (position and colour)
+    std::vector<float> vertexData;
+    vertexData.reserve(vertexCount * 5);
+    float s = 0.01f; //radius of agent triangles
+    //float triangleSize = 0.01f;
+
+    for (auto&a : agents) {
+        // euler integration  
+        a.x +=a.dx * a.speed;
+        a.y +=a.dy * a.speed;
+
+        if (a.greediness > 0.8f){
+            a.x += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
+            a.y += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
+        }
+    
+        // 1280 / 720  roughtly 1.77
+        if (a.x > 1.77f) a.x = -1.77f; else if (a.x < -1.77f) a.x = 1.77f; //if agent walsk off the right, popped back to the left
+        if (a.y > 1.0f) a.y = -1.0f; else if (a.y < -1.0f) a.y = 1.0f;
+        vertexData.insert(vertexData.end(), std::initializer_list<float>{ 
+        a.x - s, a.y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 1
+        a.x + s, a.y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 2
+        a.x,     a.y + s, 0.2f, a.proteinLevel, a.greediness  // Vertex 3
+    });
+    }
+    queue.writeBuffer(vertexBuffer, 0, vertexData.data(), vertexData.size() * sizeof(float));
 }
 
 

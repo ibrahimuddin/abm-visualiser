@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DWEBGPU_BACKEND_WGPU
 
-CXX_INCLUDES = -I/home/ibrahim/PRJ/ABM_Visualiser/glfw/include -I/home/ibrahim/PRJ/ABM_Visualiser/glfw3webgpu/. -isystem /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include
+CXX_INCLUDES = -I/home/ibrahim/PRJ/ABM_Visualiser/glfw/include -I/home/ibrahim/PRJ/ABM_Visualiser/glfw3webgpu/. -I/home/ibrahim/PRJ/ABM_Visualiser/imgui/. -isystem /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include
 
 CXX_FLAGS = -std=c++17 -Wall -Wextra -pedantic -Werror
 

@@ -54,6 +54,11 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
+  include("/home/ibrahim/PRJ/ABM_Visualiser/build/imgui/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
   include("/home/ibrahim/PRJ/ABM_Visualiser/build/glfw/cmake_install.cmake")
 endif()
 

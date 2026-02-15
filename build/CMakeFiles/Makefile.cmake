@@ -17,6 +17,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/home/ibrahim/PRJ/ABM_Visualiser/glfw/CMakeLists.txt"
   "/home/ibrahim/PRJ/ABM_Visualiser/glfw/src/CMakeLists.txt"
   "/home/ibrahim/PRJ/ABM_Visualiser/glfw3webgpu/CMakeLists.txt"
+  "/home/ibrahim/PRJ/ABM_Visualiser/imgui/CMakeLists.txt"
   "/home/ibrahim/PRJ/ABM_Visualiser/webgpu/CMakeLists.txt"
   "/home/ibrahim/PRJ/ABM_Visualiser/webgpu/webgpu.cmake"
   "/usr/share/cmake-3.28/Modules/BasicConfigVersion-SameMajorVersion.cmake.in"
@@ -74,6 +75,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
   "webgpu/CMakeFiles/CMakeDirectoryInformation.cmake"
   "_deps/webgpu-backend-wgpu-build/CMakeFiles/CMakeDirectoryInformation.cmake"
   "glfw3webgpu/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "imgui/CMakeFiles/CMakeDirectoryInformation.cmake"
   "glfw/src/glfw3Config.cmake"
   "glfw/src/glfw3ConfigVersion.cmake"
   "glfw/CMakeFiles/CMakeDirectoryInformation.cmake"
@@ -85,6 +87,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/ABM_Visualizer.dir/DependInfo.cmake"
   "glfw3webgpu/CMakeFiles/glfw3webgpu.dir/DependInfo.cmake"
+  "imgui/CMakeFiles/imgui.dir/DependInfo.cmake"
   "glfw/src/CMakeFiles/glfw.dir/DependInfo.cmake"
   "glfw/src/CMakeFiles/update_mappings.dir/DependInfo.cmake"
   )

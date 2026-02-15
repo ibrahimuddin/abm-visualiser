@@ -143,6 +143,19 @@ glfw3webgpu/fast:
 .PHONY : glfw3webgpu/fast
 
 #=============================================================================
+# Target rules for targets named imgui
+
+# Build rule for target.
+imgui: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 imgui
+.PHONY : imgui
+
+# fast build rule for target.
+imgui/fast:
+	$(MAKE) $(MAKESILENT) -f imgui/CMakeFiles/imgui.dir/build.make imgui/CMakeFiles/imgui.dir/build
+.PHONY : imgui/fast
+
+#=============================================================================
 # Target rules for targets named glfw
 
 # Build rule for target.
@@ -228,6 +241,7 @@ help:
 	@echo "... ABM_Visualizer"
 	@echo "... glfw"
 	@echo "... glfw3webgpu"
+	@echo "... imgui"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

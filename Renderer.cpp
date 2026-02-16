@@ -125,12 +125,13 @@ void Renderer::InitialiseBuffers(int scale){
     // queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
 
-void Renderer::UpdateAgents(){
+void Renderer::UpdateAgents(float zoom){
     // go through agents db and pick our exactly what the gpu needs (position and colour)
     std::vector<float> vertexData;
     vertexData.reserve(agents.size() * 3 * 5);
-    float s = 0.01f; //radius of agent triangles
+    float baseSize = 0.01f; //radius of agent triangles
     //float triangleSize = 0.01f;
+    float s = baseSize * zoom;
 
     for (auto&a : agents) {
         // euler integration  
@@ -141,14 +142,17 @@ void Renderer::UpdateAgents(){
             a.x += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
             a.y += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
         }
+
+        float x = a.x * zoom;
+        float y = a.y * zoom;
     
         // 1280 / 720  roughtly 1.77
         if (a.x > 1.77f) a.x = -1.77f; else if (a.x < -1.77f) a.x = 1.77f; //if agent walsk off the right, popped back to the left
         if (a.y > 1.0f) a.y = -1.0f; else if (a.y < -1.0f) a.y = 1.0f;
         vertexData.insert(vertexData.end(), std::initializer_list<float>{ 
-        a.x - s, a.y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 1
-        a.x + s, a.y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 2
-        a.x,     a.y + s, 0.2f, a.proteinLevel, a.greediness  // Vertex 3
+        x - s, y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 1
+        x + s, y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 2
+        x,     y + s, 0.2f, a.proteinLevel, a.greediness  // Vertex 3
     });
     }
     context.getQueue().writeBuffer(vertexBuffer, 0, vertexData.data(), vertexData.size() * sizeof(float));

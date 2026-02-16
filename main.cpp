@@ -135,7 +135,7 @@ void Application::MainLoop() {
 
     ImGui::Begin("Controls");
     static float zoom = 1.0f;
-    ImGui::SliderFloat("Zoom", &zoom, 0.1f, 5.0f); 
+    ImGui::SliderFloat("Zoom", &zoom, 0.1f, 10.0f); 
     ImGui::End();
 
     glfwPollEvents();
@@ -145,7 +145,7 @@ void Application::MainLoop() {
     lastFrameTime = currentFrameTime;
 
     auto startBench = std::chrono::high_resolution_clock::now();
-    renderer.UpdateAgents(); 
+    renderer.UpdateAgents(zoom); 
     auto endBench = std::chrono::high_resolution_clock::now();
 
     if (stepCounter < 100) {

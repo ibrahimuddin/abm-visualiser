@@ -1,7 +1,9 @@
-CMakeFiles/ABM_Visualizer.dir/main.cpp.o: \
- /home/ibrahim/PRJ/ABM_Visualiser/main.cpp /usr/include/stdc-predef.h \
- /home/ibrahim/PRJ/ABM_Visualiser/webgpu-utils.h \
- /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include/webgpu/webgpu.h \
+CMakeFiles/ABM_Visualizer.dir/WebGPUContext.cpp.o: \
+ /home/ibrahim/PRJ/ABM_Visualiser/WebGPUContext.cpp \
+ /usr/include/stdc-predef.h \
+ /home/ibrahim/PRJ/ABM_Visualiser/WebGPUContext.h \
+ /home/ibrahim/PRJ/ABM_Visualiser/glfw/include/GLFW/glfw3.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -17,9 +19,10 @@ CMakeFiles/ABM_Visualizer.dir/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-least.h /usr/include/GL/gl.h \
+ /usr/include/GL/glext.h /usr/include/KHR/khrplatform.h \
  /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include/webgpu/webgpu.hpp \
+ /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include/webgpu/webgpu.h \
  /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include/webgpu/wgpu.h \
  /home/ibrahim/PRJ/ABM_Visualiser/build/_deps/webgpu-backend-wgpu-src/include/webgpu/webgpu.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/bits/requires_hosted.h \
@@ -188,19 +191,5 @@ CMakeFiles/ABM_Visualizer.dir/main.cpp.o: \
  /usr/include/c++/13/backward/auto_ptr.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/ibrahim/PRJ/ABM_Visualiser/glfw/include/GLFW/glfw3.h \
- /usr/include/GL/gl.h /usr/include/GL/glext.h \
- /usr/include/KHR/khrplatform.h \
- /home/ibrahim/PRJ/ABM_Visualiser/glfw3webgpu/./glfw3webgpu.h \
- /usr/include/c++/13/chrono /usr/include/c++/13/bits/chrono.h \
- /usr/include/c++/13/ratio /usr/include/c++/13/cstdint \
- /usr/include/c++/13/limits /usr/include/c++/13/ctime \
- /usr/include/c++/13/bits/parse_numbers.h \
- /home/ibrahim/PRJ/ABM_Visualiser/imgui/./imgui.h \
- /home/ibrahim/PRJ/ABM_Visualiser/imgui/./imconfig.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h /usr/include/string.h \
- /usr/include/strings.h \
- /home/ibrahim/PRJ/ABM_Visualiser/imgui/./backends/imgui_impl_wgpu.h \
- /home/ibrahim/PRJ/ABM_Visualiser/imgui/./backends/imgui_impl_glfw.h \
- /home/ibrahim/PRJ/ABM_Visualiser/WebGPUContext.h \
- /home/ibrahim/PRJ/ABM_Visualiser/Renderer.h
+ /home/ibrahim/PRJ/ABM_Visualiser/webgpu-utils.h \
+ /home/ibrahim/PRJ/ABM_Visualiser/glfw3webgpu/./glfw3webgpu.h

@@ -181,6 +181,54 @@ update_mappings/fast:
 	$(MAKE) $(MAKESILENT) -f glfw/src/CMakeFiles/update_mappings.dir/build.make glfw/src/CMakeFiles/update_mappings.dir/build
 .PHONY : update_mappings/fast
 
+Renderer.o: Renderer.cpp.o
+.PHONY : Renderer.o
+
+# target to build an object file
+Renderer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ABM_Visualizer.dir/build.make CMakeFiles/ABM_Visualizer.dir/Renderer.cpp.o
+.PHONY : Renderer.cpp.o
+
+Renderer.i: Renderer.cpp.i
+.PHONY : Renderer.i
+
+# target to preprocess a source file
+Renderer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ABM_Visualizer.dir/build.make CMakeFiles/ABM_Visualizer.dir/Renderer.cpp.i
+.PHONY : Renderer.cpp.i
+
+Renderer.s: Renderer.cpp.s
+.PHONY : Renderer.s
+
+# target to generate assembly for a file
+Renderer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ABM_Visualizer.dir/build.make CMakeFiles/ABM_Visualizer.dir/Renderer.cpp.s
+.PHONY : Renderer.cpp.s
+
+WebGPUContext.o: WebGPUContext.cpp.o
+.PHONY : WebGPUContext.o
+
+# target to build an object file
+WebGPUContext.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ABM_Visualizer.dir/build.make CMakeFiles/ABM_Visualizer.dir/WebGPUContext.cpp.o
+.PHONY : WebGPUContext.cpp.o
+
+WebGPUContext.i: WebGPUContext.cpp.i
+.PHONY : WebGPUContext.i
+
+# target to preprocess a source file
+WebGPUContext.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ABM_Visualizer.dir/build.make CMakeFiles/ABM_Visualizer.dir/WebGPUContext.cpp.i
+.PHONY : WebGPUContext.cpp.i
+
+WebGPUContext.s: WebGPUContext.cpp.s
+.PHONY : WebGPUContext.s
+
+# target to generate assembly for a file
+WebGPUContext.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ABM_Visualizer.dir/build.make CMakeFiles/ABM_Visualizer.dir/WebGPUContext.cpp.s
+.PHONY : WebGPUContext.cpp.s
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -242,6 +290,12 @@ help:
 	@echo "... glfw"
 	@echo "... glfw3webgpu"
 	@echo "... imgui"
+	@echo "... Renderer.o"
+	@echo "... Renderer.i"
+	@echo "... Renderer.s"
+	@echo "... WebGPUContext.o"
+	@echo "... WebGPUContext.i"
+	@echo "... WebGPUContext.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

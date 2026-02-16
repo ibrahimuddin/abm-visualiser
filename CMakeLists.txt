@@ -13,6 +13,10 @@ add_executable(ABM_Visualizer
 main.cpp
 webgpu-utils.h
 webgpu-utils.cpp
+WebGPUContext.h
+WebGPUContext.cpp
+Renderer.h
+Renderer.cpp
 )
 
 target_link_libraries(ABM_Visualizer PRIVATE webgpu glfw glfw3webgpu imgui)

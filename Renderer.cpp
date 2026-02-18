@@ -2,6 +2,7 @@
 #include <iostream>
 #include "imgui.h"
 #include <backends/imgui_impl_wgpu.h>
+#include <cmath>
 
 Renderer::Renderer(WebGPUContext& context) 
     : context(context), vertexCount(0) {}
@@ -125,13 +126,23 @@ void Renderer::InitialiseBuffers(int scale){
     // queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
 
-void Renderer::UpdateAgents(float zoom){
+void Renderer::UpdateAgents(float zoom, float rotation){
     // go through agents db and pick our exactly what the gpu needs (position and colour)
     std::vector<float> vertexData;
     vertexData.reserve(agents.size() * 3 * 5);
     float baseSize = 0.01f; //radius of agent triangles
     //float triangleSize = 0.01f;
     float s = baseSize * zoom;
+
+    // sin/ cos expect radians so convert degrees to radians
+    // radians = degrees * (pi/180)
+    
+    float pi = 3.142f;
+    float radians = rotation * (pi/180.0f);
+    float cosAngle = std::cos(radians);
+    float sinAngle = std::sin(radians);
+
+
 
     for (auto&a : agents) {
         // euler integration  
@@ -143,16 +154,33 @@ void Renderer::UpdateAgents(float zoom){
             a.y += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
         }
 
-        float x = a.x * zoom;
-        float y = a.y * zoom;
-    
         // 1280 / 720  roughtly 1.77
         if (a.x > 1.77f) a.x = -1.77f; else if (a.x < -1.77f) a.x = 1.77f; //if agent walsk off the right, popped back to the left
         if (a.y > 1.0f) a.y = -1.0f; else if (a.y < -1.0f) a.y = 1.0f;
+
+        // 2d rotation matrix to (x,y)
+        // x' = x * cos(angle) - y * sin(angle)
+        // y' = y * cos(angle) + x * sin(angle)
+
+        float x = (a.x * cosAngle - a.y * sinAngle) * zoom;
+        float y = (a.y * cosAngle + a.x * sinAngle) * zoom;
+        
+        // local rotation - rotating the corners around the centre
+        float x1 = (-s) * cosAngle - (-s) * sinAngle;
+        float y1 = (-s) * cosAngle + (-s) * sinAngle;
+        float x2 = (s) * cosAngle - (-s) * sinAngle;
+        float y2 = (-s) * cosAngle + (s) *sinAngle;
+        float x3 = 0 * cosAngle - (s) * sinAngle;
+        float y3 = (s) * cosAngle + 0 * sinAngle;
+
+        // float x = a.x * zoom;
+        // float y = a.y * zoom;
+
+
         vertexData.insert(vertexData.end(), std::initializer_list<float>{ 
-        x - s, y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 1
-        x + s, y - s, 0.2f, a.proteinLevel, a.greediness, // Vertex 2
-        x,     y + s, 0.2f, a.proteinLevel, a.greediness  // Vertex 3
+        x + x1, y + y1, 0.2f, a.proteinLevel, a.greediness, // Vertex 1
+        x + x2 , y + y2, 0.2f, a.proteinLevel, a.greediness, // Vertex 2
+        x + x3,     y + y3, 0.2f, a.proteinLevel, a.greediness  // Vertex 3
     });
     }
     context.getQueue().writeBuffer(vertexBuffer, 0, vertexData.data(), vertexData.size() * sizeof(float));

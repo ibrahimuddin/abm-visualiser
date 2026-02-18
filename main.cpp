@@ -24,7 +24,7 @@
 #include <cassert>
 #include <vector>
 
-//  export SDL_VIDEODRIVER=x11
+// export SDL_VIDEODRIVER=x11
 // export WAYLAND_DISPLAY=
 
 const char* shaderSource = R"(
@@ -135,7 +135,9 @@ void Application::MainLoop() {
 
     ImGui::Begin("Controls");
     static float zoom = 1.0f;
+    static float rotation = 0.0f;
     ImGui::SliderFloat("Zoom", &zoom, 0.1f, 10.0f); 
+    ImGui::SliderFloat("Rotate", &rotation, 0.0f, 360.0f);
     ImGui::End();
 
     glfwPollEvents();
@@ -145,7 +147,7 @@ void Application::MainLoop() {
     lastFrameTime = currentFrameTime;
 
     auto startBench = std::chrono::high_resolution_clock::now();
-    renderer.UpdateAgents(zoom); 
+    renderer.UpdateAgents(zoom, rotation); 
     auto endBench = std::chrono::high_resolution_clock::now();
 
     if (stepCounter < 100) {

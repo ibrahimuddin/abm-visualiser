@@ -19,7 +19,7 @@ public:
 
     void InitialisePipeline(const char* shaderSource);
     void InitialiseBuffers(int scale);
-    void UpdateAgents(float zoom, float rotation);
+    void UpdateAgents(float zoom, float rotation, bool isPaused);
     void Draw();
     void Terminate();
 

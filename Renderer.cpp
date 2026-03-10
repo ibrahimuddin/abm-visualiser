@@ -126,7 +126,7 @@ void Renderer::InitialiseBuffers(int scale){
     // queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
 
-void Renderer::UpdateAgents(float zoom, float rotation){
+void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused){
     // go through agents db and pick our exactly what the gpu needs (position and colour)
     std::vector<float> vertexData;
     vertexData.reserve(agents.size() * 3 * 5);
@@ -145,13 +145,15 @@ void Renderer::UpdateAgents(float zoom, float rotation){
 
 
     for (auto&a : agents) {
-        // euler integration  
-        a.x +=a.dx * a.speed;
-        a.y +=a.dy * a.speed;
+        if (!isPaused){
+            // euler integration  
+            a.x +=a.dx * a.speed;
+            a.y +=a.dy * a.speed;
 
-        if (a.greediness > 0.8f){
-            a.x += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
-            a.y += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
+            if (a.greediness > 0.8f){
+                a.x += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
+                a.y += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
+            }
         }
 
         // 1280 / 720  roughtly 1.77

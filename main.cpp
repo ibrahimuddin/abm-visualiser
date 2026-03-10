@@ -129,6 +129,8 @@ void Application::Terminate() {
 void Application::MainLoop() {
     if (glfwWindowShouldClose(window)) return;
 
+    static bool isPaused = false; //statci so that the value survivees between frames
+
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -138,6 +140,11 @@ void Application::MainLoop() {
     static float rotation = 0.0f;
     ImGui::SliderFloat("Zoom", &zoom, 0.1f, 10.0f); 
     ImGui::SliderFloat("Rotate", &rotation, 0.0f, 360.0f);
+
+    if (ImGui::Button(isPaused ? "Resume" : "Pause")) {
+        isPaused = !isPaused; 
+    }
+
     ImGui::End();
 
     glfwPollEvents();
@@ -145,38 +152,43 @@ void Application::MainLoop() {
     auto currentFrameTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
+    if (!isPaused){
+        auto startBench = std::chrono::high_resolution_clock::now();
+        renderer.UpdateAgents(zoom, rotation, isPaused); 
+        auto endBench = std::chrono::high_resolution_clock::now();
 
-    auto startBench = std::chrono::high_resolution_clock::now();
-    renderer.UpdateAgents(zoom, rotation); 
-    auto endBench = std::chrono::high_resolution_clock::now();
+        if (stepCounter < 100) {
+            std::chrono::duration<double, std::milli> elapsed = endBench - startBench;
+            totalTime += elapsed.count();
+            stepCounter++;
+        }
 
-    if (stepCounter < 100) {
-        std::chrono::duration<double, std::milli> elapsed = endBench - startBench;
-        totalTime += elapsed.count();
-        stepCounter++;
-    }
+        displayTimer += deltaTime.count(); // Accumulate real-world seconds
 
-    displayTimer += deltaTime.count(); // Accumulate real-world seconds
+        // Transition condition: 100 frames measured AND 3 seconds have passed
+        if (stepCounter >= 100 && displayTimer >= TIME_PER_SCALE) {
+            double avg = totalTime / 100.0;
+            std::cout << "COMPLETED SCALE: " << currentScale << " | AVG MATH TIME: " << avg << "ms" << std::endl;
 
-    // Transition condition: 100 frames measured AND 3 seconds have passed
-    if (stepCounter >= 100 && displayTimer >= TIME_PER_SCALE) {
-        double avg = totalTime / 100.0;
-        std::cout << "COMPLETED SCALE: " << currentScale << " | AVG MATH TIME: " << avg << "ms" << std::endl;
+            // Reset for next level
+            stepCounter = 0;
+            totalTime = 0.0;
+            displayTimer = 0.0f;
+            currentScale *= 10;
 
-        // Reset for next level
-        stepCounter = 0;
-        totalTime = 0.0;
-        displayTimer = 0.0f;
-        currentScale *= 10;
-
-        if (currentScale <= 100000) {
-            renderer.InitialiseBuffers(currentScale); // This resets the 'agents' vector and creates a bigger GPU buffer
-        } else {
-            std::cout << "Objective 1: All scales tested successfully." << std::endl;
-            glfwSetWindowShouldClose(window, true);
-            return;
+            if (currentScale <= 100000) {
+                renderer.InitialiseBuffers(currentScale); // This resets the 'agents' vector and creates a bigger GPU buffer
+            } else {
+                std::cout << "Objective 1: All scales tested successfully." << std::endl;
+                glfwSetWindowShouldClose(window, true);
+                return;
+            }
         }
     }
+    else{   
+        renderer.UpdateAgents(zoom, rotation, true); 
+    }
+    
     renderer.Draw();
 }
 

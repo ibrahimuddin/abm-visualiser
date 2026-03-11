@@ -24,8 +24,7 @@
 #include <cassert>
 #include <vector>
 
-// export SDL_VIDEODRIVER=x11
-// export WAYLAND_DISPLAY=
+// export SDL_VIDEODRIVER=x11 export WAYLAND_DISPLAY=
 
 const char* shaderSource = R"(
 
@@ -129,17 +128,21 @@ void Application::Terminate() {
 void Application::MainLoop() {
     if (glfwWindowShouldClose(window)) return;
 
-    static bool isPaused = false; //statci so that the value survivees between frames
+    static float zoom = 1.0f;
+    static float rotation = 0.0f;
+    static bool isPaused = false;
+    static bool isSlow = false;  //static so that the value survivees between frames
+    static float speedFactor = 1.0f; //1.0 is normal speed
 
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     ImGui::Begin("Controls");
-    static float zoom = 1.0f;
-    static float rotation = 0.0f;
     ImGui::SliderFloat("Zoom", &zoom, 0.1f, 10.0f); 
     ImGui::SliderFloat("Rotate", &rotation, 0.0f, 360.0f);
+    ImGui::SliderFloat("Speed", &speedFactor, 1.0f, 10.0f);
+
 
     if (ImGui::Button(isPaused ? "Resume" : "Pause")) {
         isPaused = !isPaused; 
@@ -154,7 +157,7 @@ void Application::MainLoop() {
     lastFrameTime = currentFrameTime;
     if (!isPaused){
         auto startBench = std::chrono::high_resolution_clock::now();
-        renderer.UpdateAgents(zoom, rotation, isPaused); 
+        renderer.UpdateAgents(zoom, rotation, isPaused, speedFactor); 
         auto endBench = std::chrono::high_resolution_clock::now();
 
         if (stepCounter < 100) {
@@ -186,7 +189,7 @@ void Application::MainLoop() {
         }
     }
     else{   
-        renderer.UpdateAgents(zoom, rotation, true); 
+        renderer.UpdateAgents(zoom, rotation, true, speedFactor); 
     }
     
     renderer.Draw();

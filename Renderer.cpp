@@ -126,7 +126,7 @@ void Renderer::InitialiseBuffers(int scale){
     // queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
 
-void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused){
+void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused, float speedFactor){
     // go through agents db and pick our exactly what the gpu needs (position and colour)
     std::vector<float> vertexData;
     vertexData.reserve(agents.size() * 3 * 5);
@@ -147,8 +147,8 @@ void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused){
     for (auto&a : agents) {
         if (!isPaused){
             // euler integration  
-            a.x +=a.dx * a.speed;
-            a.y +=a.dy * a.speed;
+            a.x +=a.dx * a.speed * speedFactor;
+            a.y +=a.dy * a.speed * speedFactor;
 
             if (a.greediness > 0.8f){
                 a.x += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;

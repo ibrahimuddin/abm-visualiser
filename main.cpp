@@ -5,11 +5,13 @@
 #include <glfw3webgpu.h>
 #include <cstdlib> // For rand()
 #include <chrono>
+#include <fstream>
 #include "imgui.h"
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 #include "WebGPUContext.h"
 #include "Renderer.h"
+
 
 
 #ifdef WEBGPU_BACKEND_WGPU
@@ -128,11 +130,14 @@ void Application::Terminate() {
 void Application::MainLoop() {
     if (glfwWindowShouldClose(window)) return;
 
+    //static so that the value survivees between frames
     static float zoom = 1.0f;
     static float rotation = 0.0f;
     static bool isPaused = false;
-    static bool isSlow = false;  //static so that the value survivees between frames
+    // static bool isSlow = false;
     static float speedFactor = 1.0f; //1.0 is normal speed
+    static bool colourBySpeed = false;
+    static float proteinSlider = 1.0f;
 
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -142,7 +147,14 @@ void Application::MainLoop() {
     ImGui::SliderFloat("Zoom", &zoom, 0.1f, 10.0f); 
     ImGui::SliderFloat("Rotate", &rotation, 0.0f, 360.0f);
     ImGui::SliderFloat("Speed", &speedFactor, 1.0f, 10.0f);
+    ImGui::Checkbox("Heat Map (Colour by Speed)", &colourBySpeed);
+    ImGui::SliderFloat("Protein Synthesis (Green)", &proteinSlider, 0.0f, 2.0f);
 
+    // if (ImGui::Button("Randomise Greed")) {
+    //     for(auto& a : renderer.agents) {
+    //         a.greediness = (float)rand() / RAND_MAX;
+    //     }
+    // }
 
     if (ImGui::Button(isPaused ? "Resume" : "Pause")) {
         isPaused = !isPaused; 
@@ -157,7 +169,7 @@ void Application::MainLoop() {
     lastFrameTime = currentFrameTime;
     if (!isPaused){
         auto startBench = std::chrono::high_resolution_clock::now();
-        renderer.UpdateAgents(zoom, rotation, isPaused, speedFactor); 
+        renderer.UpdateAgents(zoom, rotation, isPaused, speedFactor, colourBySpeed, proteinSlider); 
         auto endBench = std::chrono::high_resolution_clock::now();
 
         if (stepCounter < 100) {
@@ -171,6 +183,15 @@ void Application::MainLoop() {
         // Transition condition: 100 frames measured AND 3 seconds have passed
         if (stepCounter >= 100 && displayTimer >= TIME_PER_SCALE) {
             double avg = totalTime / 100.0;
+
+            std::ofstream outFile("benchmark_results.csv", std::ios::app); 
+            if (currentScale == 10) { 
+                outFile.close();
+                outFile.open("benchmark_results.csv", std::ios::out);
+                outFile << "AgentCount,AverageMathTimeMS\n";
+            }
+            outFile << currentScale << "," << avg << "\n";
+            outFile.close();
             std::cout << "COMPLETED SCALE: " << currentScale << " | AVG MATH TIME: " << avg << "ms" << std::endl;
 
             // Reset for next level
@@ -189,7 +210,7 @@ void Application::MainLoop() {
         }
     }
     else{   
-        renderer.UpdateAgents(zoom, rotation, true, speedFactor); 
+        renderer.UpdateAgents(zoom, rotation, true, speedFactor, colourBySpeed, proteinSlider); 
     }
     
     renderer.Draw();

@@ -126,13 +126,13 @@ void Renderer::InitialiseBuffers(int scale){
     // queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
 
-void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused, float speedFactor){
+void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused, float speedFactor, bool colourBySpeed, float proteinSlider){
     // go through agents db and pick our exactly what the gpu needs (position and colour)
     std::vector<float> vertexData;
     vertexData.reserve(agents.size() * 3 * 5);
     float baseSize = 0.01f; //radius of agent triangles
     //float triangleSize = 0.01f;
-    float s = baseSize * zoom;
+    // float s = baseSize * zoom; // move inside the loop 
 
     // sin/ cos expect radians so convert degrees to radians
     // radians = degrees * (pi/180)
@@ -155,6 +155,16 @@ void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused, float spe
                 a.y += ((float)rand() / (float)RAND_MAX - 0.5f) * 0.002f;
             }
         }
+        float r,g,b;
+        if (colourBySpeed){
+            r = a.speed;
+            g = 0.2f;
+            b = 1.0f -r;
+        }else{
+            r=0.2f;
+            g = a.proteinLevel *proteinSlider;
+            b = a.greediness;
+        }
 
         // 1280 / 720  roughtly 1.77
         if (a.x > 1.77f) a.x = -1.77f; else if (a.x < -1.77f) a.x = 1.77f; //if agent walsk off the right, popped back to the left
@@ -167,22 +177,24 @@ void Renderer::UpdateAgents(float zoom, float rotation, bool isPaused, float spe
         float x = (a.x * cosAngle - a.y * sinAngle) * zoom;
         float y = (a.y * cosAngle + a.x * sinAngle) * zoom;
         
+        float s = baseSize * zoom * a.proteinLevel;
+
         // local rotation - rotating the corners around the centre
-        float x1 = (-s) * cosAngle - (-s) * sinAngle;
-        float y1 = (-s) * cosAngle + (-s) * sinAngle;
-        float x2 = (s) * cosAngle - (-s) * sinAngle;
-        float y2 = (-s) * cosAngle + (s) *sinAngle;
-        float x3 = 0 * cosAngle - (s) * sinAngle;
-        float y3 = (s) * cosAngle + 0 * sinAngle;
+        float x1 = (-s); //* cosAngle - (-s) * sinAngle;
+        float y1 = (-s);// * cosAngle + (-s) * sinAngle;
+        float x2 = (s);// * cosAngle - (-s) * sinAngle;
+        float y2 = (-s);// * cosAngle + (s) *sinAngle;
+        float x3 = 0;// * cosAngle - (s) * sinAngle;
+        float y3 = (s);//d * cosAngle + 0 * sinAngle;
 
         // float x = a.x * zoom;
         // float y = a.y * zoom;
 
 
         vertexData.insert(vertexData.end(), std::initializer_list<float>{ 
-        x + x1, y + y1, 0.2f, a.proteinLevel, a.greediness, // Vertex 1
-        x + x2 , y + y2, 0.2f, a.proteinLevel, a.greediness, // Vertex 2
-        x + x3,     y + y3, 0.2f, a.proteinLevel, a.greediness  // Vertex 3
+        x + x1, y + y1, r, g, b, // Vertex 1
+        x + x2 , y + y2, r, g, b, // Vertex 2
+        x + x3,     y + y3, r, g, b  // Vertex 3
     });
     }
     context.getQueue().writeBuffer(vertexBuffer, 0, vertexData.data(), vertexData.size() * sizeof(float));

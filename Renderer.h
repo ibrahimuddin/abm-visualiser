@@ -19,7 +19,7 @@ public:
 
     void InitialisePipeline(const char* shaderSource);
     void InitialiseBuffers(int scale);
-    void UpdateAgents(float zoom, float rotation, bool isPaused, float speedFacor);
+    void UpdateAgents(float zoom, float rotation, bool isPaused, float speedFacor, bool colourBySpeed, float proteinSlider);
     void Draw();
     void Terminate();
 

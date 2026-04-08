@@ -38,3 +38,8 @@ make
 
 # 6. Run the simulation
 ./ABM_Visualizer
+
+**Note for Linux Users:** If you are using a Wayland-based display server, you may need to set your environment variables to X11 compatibility mode for GLFW to initialise correctly:
+```bash
+export SDL_VIDEODRIVER=x11
+export WAYLAND_DISPLAY=
